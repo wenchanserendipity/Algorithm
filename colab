@@ -1,0 +1,90 @@
+!gdown --id '1qCHfycy91EyUFzilBvxu8hYVYp0l6jCh' --output /tmp/Midterm_Dataset.zip 
+
+import os
+import zipfile
+
+local_zip = '/tmp/Midterm_Dataset.zip'
+zip_ref = zipfile.ZipFile(local_zip, 'r')
+zip_ref.extractall('/tmp')
+zip_ref.close()
+
+%cd ..
+%cd tmp
+
+import numpy as np
+import random
+import os
+from PIL import Image 
+from keras.models import Sequential
+from keras.layers import Dense, Dropout, Flatten
+from keras.layers import Conv2D, MaxPooling2D
+from keras.utils import np_utils
+from matplotlib import pyplot as plt
+
+
+label_dict={'bolt':0,'locatingpin':1,'nut':2,'washer':3}
+def data_x_y_preprocess(datapath):
+    img_row, img_col = 40,40
+    datapath = datapath
+    data_x = np.zeros((40,40)).reshape(1,40,40)
+    pictureCount = 0
+    data_y =[]
+    num_class=4
+
+    for root, dirs, files in os.walk(datapath):
+        for f in files:
+            label=label_dict.get(root.split("/")[3])
+            data_y.append(label)
+            fullpath=os.path.join(root,f)
+            img=Image.open(fullpath)
+            img=img.resize((40,40))
+            img=(np.array(img)/255).reshape(3,40,40)
+            data_x=np.vstack((data_x,img))
+            pictureCount = pictureCount +1
+            if pictureCount%200==0:
+                print(f"{root.split(os.sep)[3]}proseccing ... Total {pictureCount}completed")
+    data_x=np.delete(data_x,[0],0)
+    data_x=data_x.reshape(pictureCount,img_row,img_col,3)
+    data_y=np_utils.to_categorical(data_y,num_class)
+    return data_x,data_y
+
+
+
+data_train_X,data_train_Y=data_x_y_preprocess("./MidTerm_Dataset/Train")
+data_test_X,data_test_Y=data_x_y_preprocess("./MidTerm_Dataset/Test")
+
+
+model = Sequential()
+model.add(Conv2D(32,kernel_size=(3, 3),activation='relu',input_shape=(40,40,3)))
+model.add(MaxPooling2D(pool_size=(2, 2)))
+model.add(Conv2D(64,(3, 3),activation='relu'))
+model.add(MaxPooling2D(pool_size=(2, 2)))
+
+
+model.add(Dropout(0,1))
+model.add(Flatten())
+model.add(Dropout(0,1))
+model.add(Dense(128, activation='relu'))
+model.add(Dropout(0.25))
+model.add(Dense(units=4, activation='softmax'))
+
+
+model.summary()
+
+
+model.compile(loss="categorical_crossentropy", optimizer="adam", metrics=['accuracy'])
+
+
+train_history = model.fit(data_train_X, data_train_Y, batch_size=32, epochs=100, verbose=1, validation_split=0.1)
+
+score=model.evaluate(data_test_X,data_test_Y,verbose=0)
+print('Test loss:', score[0])
+print('Test accuracy:',score[1])
+
+plt.plot(train_history.history['loss'])
+plt.plot(train_history.history['val_loss'])
+plt.title('Train_History')
+plt.ylabel('loss')
+plt.xlabel('epochs')
+plt.legend(['loss','val_loss'],loc='upper left')
+plt.show()
